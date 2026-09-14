@@ -49,16 +49,18 @@ const userSchema = new Schema (
         timestamps: true
     }
 )
-
+// middleware to hash password before saving to database
 userSchema.pre("save", async function(next) {
     if(!this.isModified("password")) return next();
     this.password = await bcrypt.hash(this.password, 10);
     next();
 })
-    // custom method 
+
+// custom method for comparing password
 userSchema.methods.isPasswordCorrect = async function(password){
     return await bcrypt.compare(password, this.password);
 }
+
 // generate access token
 userSchema.methods.generateAccessToken = function() {
     return jwt.sign(
@@ -74,6 +76,7 @@ userSchema.methods.generateAccessToken = function() {
         }
     )
 }
+
 // generate refresh token
 userSchema.methods.generateRefreshToken = function() {
     return jwt.sign(

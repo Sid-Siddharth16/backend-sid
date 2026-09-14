@@ -47,5 +47,6 @@ const videoSchema = new Schema({
 
 }, {timestamps: true});
 
+// add pagination plugin to video schema
 videoSchema.plugin(mongooseAggregatePaginate); 
 export const Video = mongoose.model("Video", videoSchema);

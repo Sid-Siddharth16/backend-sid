@@ -1,14 +1,13 @@
-// require('dotenv').config()
 import dotenv from "dotenv";
 import connectToDatabase from "./db/index.js";
 import app from "./app.js";
 
+// load environment variables from .env file
 dotenv.config({
     path: "./env"
 })
 
-
-
+// connect to database and start the server
 connectToDatabase()
     .then(
         () => {
