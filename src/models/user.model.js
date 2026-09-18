@@ -49,10 +49,9 @@ const userSchema = new Schema (
     }
 )
 // middleware to hash password before saving to database
-userSchema.pre("save", async function(next) {
-    if(!this.isModified("password")) return next();
+userSchema.pre("save", async function() {
+    if(!this.isModified("password")) return;
     this.password = await bcrypt.hash(this.password, 10);
-    next;
 })
 
 // custom method for comparing password
