@@ -31,7 +31,6 @@ const userSchema = new Schema (
         },
         coverImage: {
             type: String, //cloudinary url
-            required : true
         },
         watchHistory: 
         [{
@@ -53,7 +52,7 @@ const userSchema = new Schema (
 userSchema.pre("save", async function(next) {
     if(!this.isModified("password")) return next();
     this.password = await bcrypt.hash(this.password, 10);
-    next();
+    next;
 })
 
 // custom method for comparing password
