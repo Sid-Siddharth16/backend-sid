@@ -23,6 +23,11 @@ const generateAccessandRefreshToken = async (userId) => {
     }
 }
 
+const options = {
+    httpOnly: true,
+    secure: false,
+}
+
 const registerUser = asyncHandler(async (req, res) => {
     //get user details from frontend
     const { fullName, email, userName, password } = req.body
@@ -116,11 +121,6 @@ const loginUser = asyncHandler(async (req, res) => {
 
     const loggedInUserDetail = await User.findById(user._id).select("-password -refreshToken");
 
-    const options = {
-        httpOnly: true,
-        secure: false
-    }
-
     return res.status(200)
         .cookie("accessToken", accessToken, options)
         .cookie("refreshToken", refreshToken, options)
@@ -144,11 +144,6 @@ const loggedOutUser = asyncHandler(async (req, res) => {
             new: true
         }
     )
-
-    const options = {
-        httpOnly: true,
-        secure: true
-    }
 
     return res.status(200).clearCookie("accessToken", options).clearCookie("refreshToken", options).json(
         new ApiResponse(200, {}, "User logged Out"))
@@ -174,10 +169,6 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
             throw new ApiError(401, "Refresh Token expired");
         }
 
-        const options = {
-            httpOnly: true,
-            secure: true,
-        }
 
         const { accessToken, newRefreshToken } = await generateAccessandRefreshToken(user._id)
 
