@@ -155,7 +155,7 @@ const loggedOutUser = asyncHandler(async (req, res) => {
 })
 
 const refreshAccessToken = asyncHandler(async (req, res) => {
-    const incomingRefreshToken = req.cookie.refreshToken || req.body.refreshToken;
+    const incomingRefreshToken = req.cookies.refreshToken || req.body.refreshToken;
 
     if (!incomingRefreshToken) {
         throw new ApiError(401, "Unauthorised Request");
@@ -164,13 +164,13 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
     try {
         const decodedRefreshToken = jwt.verify(incomingRefreshToken, process.env.REFRESH_TOKEN_SECRET);
 
-        const user = await user.findById(decodedRefreshToken._id);
+        const user = await User.findById(decodedRefreshToken._id);
 
         if (!user) {
             throw new ApiError(401, "Invalid  Refresh Token");
         }
 
-        if (decodedRefreshToken !== user?.refreshToken) {
+        if (incomingRefreshToken !== user?.refreshToken) {
             throw new ApiError(401, "Refresh Token expired");
         }
 
@@ -189,18 +189,18 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
                 new ApiResponse(
                     200,
                     {
-                        accessToken, refreshToken: newRefreshToken,
+                        accessToken, newRefreshToken,
                     },
                     "Access Token refreshed successfully!"
                 )
             )
 
     } catch (error) {
-        throw new ApiResponse(401, error?.message || "Invalid refresh Token");
+        throw new ApiError(401, error?.message || "Invalid refresh Token");
 
     }
 
 
 })
 
-export { registerUser, loginUser, loggedOutUser , refreshAccessToken}
+export { registerUser, loginUser, loggedOutUser, refreshAccessToken }
