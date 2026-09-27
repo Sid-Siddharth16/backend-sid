@@ -4,7 +4,7 @@ import app from "./app.js";
 
 // load environment variables from .env file
 dotenv.config({
-    path: "./env"
+    path: "./.env"
 })
 
 // connect to database and start the server

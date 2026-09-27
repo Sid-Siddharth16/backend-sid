@@ -53,15 +53,11 @@ const registerUser = asyncHandler(async (req, res) => {
     if (!avatarLocalPath) {
         throw new ApiError(400, "Avatar file is required")
     }
-    // upload them to cloudinary, avatar
-    const avatar = await uploadOnCloudinary(avatarLocalPath)
-
-
-    let coverImage = null;
-
-    if (coverImageLocalPath) {
-        coverImage = await uploadOnCloudinary(coverImageLocalPath);
-    }
+    // upload them to cloudinary in parallel (uploadOnCloudinary returns null for a missing path)
+    const [avatar, coverImage] = await Promise.all([
+        uploadOnCloudinary(avatarLocalPath),
+        uploadOnCloudinary(coverImageLocalPath)
+    ])
 
 
     if (!avatar) {
@@ -170,7 +166,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
         }
 
 
-        const { accessToken, newRefreshToken } = await generateAccessandRefreshToken(user._id)
+        const { accessToken, refreshToken: newRefreshToken } = await generateAccessandRefreshToken(user._id)
 
         return res.
             status(200)
@@ -180,7 +176,8 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
                 new ApiResponse(
                     200,
                     {
-                        accessToken, newRefreshToken,
+                        accessToken,
+                        refreshToken: newRefreshToken,
                     },
                     "Access Token refreshed successfully!"
                 )
