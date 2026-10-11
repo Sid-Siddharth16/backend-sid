@@ -136,9 +136,6 @@ const loggedOutUser = asyncHandler(async (req, res) => {
             refreshToken: undefined
         }
     },
-        {
-            new: true
-        }
     )
 
     return res.status(200).clearCookie("accessToken", options).clearCookie("refreshToken", options).json(
@@ -191,4 +188,18 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
 
 })
 
-export { registerUser, loginUser, loggedOutUser, refreshAccessToken }
+const dashboardUser = asyncHandler(async (req, res) => {
+    // get user details from req.user
+    const dasboardDetailsOfUser = await User.findById(req.user._id).select("-password -refreshToken");
+
+    return res.status(200).json(new ApiResponse(200, dasboardDetailsOfUser, "Dashboard details fetched successfully"))
+})
+
+const editProfile = asyncHandler(async(req, res) => {
+    //edit profile steps:
+    
+})
+
+
+
+export { registerUser, loginUser, loggedOutUser, refreshAccessToken, dashboardUser, editProfile }

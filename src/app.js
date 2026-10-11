@@ -3,7 +3,7 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 
 const app = express();
-// enable CORS for all routes
+// enable CORS for specific routes
 app.use(cors({
     origin : process.env.CORS_ORIGIN,
     credentials : true
@@ -23,11 +23,9 @@ app.use(cookieParser())
 
 
 //routes import
-
 import userRouter from "./routes/user.routes.js";
 
 //routes declaration
-
 app.use("/api/v1/users", userRouter);
 
 
