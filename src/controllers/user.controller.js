@@ -82,7 +82,7 @@ const registerUser = asyncHandler(async (req, res) => {
 
     // return res
     return res.status(201).json(
-        new ApiResponse(200, createdUser, "User registered succesfully")
+        new ApiResponse(201, createdUser, "User registered succesfully")
     )
 })
 
@@ -192,6 +192,7 @@ const dashboardUser = asyncHandler(async (req, res) => {
 
 const editProfile = asyncHandler(async(req, res) => {
     //edit profile steps: extract the data from req body, check the user in db , then match the thing data changed then update in db and return the updated user details
+    // body already validated (trimmed/lowercased) by editProfileSchema
     const { fullName, email, userName } = req.body;
 
     const user = await User.findById(req.user._id);
@@ -200,10 +201,18 @@ const editProfile = asyncHandler(async(req, res) => {
         throw new ApiError(404, "User not found");
     }
 
-// validations
-    if ([fullName, email, userName].some((field) => field?.trim() === "")) {
-        throw new ApiError(400, "fullName is required")
+    // make sure the new email / userName isn't taken by another user
+    const orConditions = [];
+    if (email && email !== user.email) orConditions.push({ email });
+    if (userName && userName !== user.userName) orConditions.push({ userName });
+
+    if (orConditions.length) {
+        const existedUser = await User.findOne({ _id: { $ne: user._id }, $or: orConditions });
+        if (existedUser) {
+            throw new ApiError(409, existedUser.email === email ? "Email already in use" : "userName already in use");
+        }
     }
+
     // check if the data has changed
     if(fullName && fullName !== user.fullName){
         user.fullName = fullName;
@@ -219,9 +228,9 @@ const editProfile = asyncHandler(async(req, res) => {
 
     await user.save();
 
+    const updatedUser = await User.findById(user._id).select("-password -refreshToken");
 
-
-    return res.status(200).json(new ApiResponse(200, {}, "Profile updated successfully"))
+    return res.status(200).json(new ApiResponse(200, updatedUser, "Profile updated successfully"))
     
 })
 

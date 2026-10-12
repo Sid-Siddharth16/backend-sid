@@ -1,0 +1,802 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "VideoTube API",
+    "version": "1.0.0",
+    "description": "REST API for VideoTube. Handles user registration (with avatar/cover image uploads to Cloudinary), login, logout, profile, and JWT access/refresh token rotation.\n\n**Authentication:** protected routes accept the access token either as an `accessToken` cookie (set by `/users/login`) or as an `Authorization: Bearer <token>` header.\n\n**Response envelope:** successful responses are wrapped as `{ statusCode, data, message, success }`. Errors return `{ success: false, message, errors }`."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8000/api/v1",
+      "description": "Local development"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Auth",
+      "description": "Registration, login, logout and token refresh"
+    },
+    {
+      "name": "User",
+      "description": "Authenticated user endpoints"
+    }
+  ],
+  "paths": {
+    "/users/register": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Register a new user",
+        "description": "Creates a user account. The avatar is required and is uploaded to Cloudinary; the cover image is optional. `email` and `userName` are trimmed and lowercased before saving.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "fullName",
+                  "email",
+                  "userName",
+                  "password",
+                  "avatar"
+                ],
+                "properties": {
+                  "fullName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 50,
+                    "example": "Jane Doe"
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "example": "jane@example.com"
+                  },
+                  "userName": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 30,
+                    "pattern": "^[a-z0-9_]+$",
+                    "description": "Letters, numbers and underscores only. Lowercased by the server.",
+                    "example": "jane_doe"
+                  },
+                  "password": {
+                    "type": "string",
+                    "format": "password",
+                    "minLength": 8,
+                    "maxLength": 64,
+                    "example": "s3cretPass!"
+                  },
+                  "avatar": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Profile image (required)"
+                  },
+                  "coverImage": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Cover image (optional)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User registered successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/User"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "example": {
+                  "statusCode": 201,
+                  "data": {
+                    "_id": "66f1c2a9e4b0a1b2c3d4e5f6",
+                    "userName": "jane_doe",
+                    "email": "jane@example.com",
+                    "fullName": "Jane Doe",
+                    "avatar": "https://res.cloudinary.com/demo/image/upload/avatar.png",
+                    "coverImage": "",
+                    "watchHistory": [],
+                    "createdAt": "2026-10-12T10:00:00.000Z",
+                    "updatedAt": "2026-10-12T10:00:00.000Z"
+                  },
+                  "message": "User registered succesfully",
+                  "success": true
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed or avatar missing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "examples": {
+                  "validation": {
+                    "summary": "Invalid field",
+                    "value": {
+                      "success": false,
+                      "message": "password must be at least 8 characters",
+                      "errors": [
+                        {
+                          "field": "password",
+                          "message": "password must be at least 8 characters"
+                        }
+                      ]
+                    }
+                  },
+                  "noAvatar": {
+                    "summary": "Avatar missing",
+                    "value": {
+                      "success": false,
+                      "message": "Avatar file is required",
+                      "errors": []
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A user with this email or userName already exists",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "success": false,
+                  "message": "User already exist",
+                  "errors": []
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
+    },
+    "/users/login": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Log in",
+        "description": "Log in with `email` **or** `userName` plus `password`. On success, sets `accessToken` and `refreshToken` as httpOnly cookies and also returns both tokens in the body.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              },
+              "examples": {
+                "byEmail": {
+                  "summary": "Login with email",
+                  "value": {
+                    "email": "jane@example.com",
+                    "password": "s3cretPass!"
+                  }
+                },
+                "byUserName": {
+                  "summary": "Login with userName",
+                  "value": {
+                    "userName": "jane_doe",
+                    "password": "s3cretPass!"
+                  }
+                }
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Logged in. Cookies `accessToken` and `refreshToken` are set.",
+            "headers": {
+              "Set-Cookie": {
+                "description": "`accessToken=...; HttpOnly` and `refreshToken=...; HttpOnly`",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "user": {
+                              "$ref": "#/components/schemas/User"
+                            },
+                            "accessToken": {
+                              "type": "string"
+                            },
+                            "refreshToken": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Neither email nor userName provided",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "success": false,
+                  "message": "Email or Username are missing",
+                  "errors": []
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Wrong password",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "success": false,
+                  "message": "Invalid user credentials",
+                  "errors": []
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No user with that email/userName",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "success": false,
+                  "message": "User does not Exist",
+                  "errors": []
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
+    },
+    "/users/logout": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Log out",
+        "description": "Clears the stored refresh token and the `accessToken` / `refreshToken` cookies.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Logged out",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                },
+                "example": {
+                  "statusCode": 200,
+                  "data": {},
+                  "message": "User logged Out",
+                  "success": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/users/refresh-token": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Refresh the access token",
+        "description": "Issues a new access token and a new refresh token (rotation). The refresh token is read from the `refreshToken` cookie, or from the request body if no cookie is present.",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "refreshToken": {
+                    "type": "string",
+                    "description": "Only needed if the `refreshToken` cookie is not sent"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Tokens refreshed. New cookies are set.",
+            "headers": {
+              "Set-Cookie": {
+                "description": "New `accessToken` and `refreshToken` cookies",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "accessToken": {
+                              "type": "string"
+                            },
+                            "refreshToken": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Refresh token missing, invalid, or already used",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "success": false,
+                  "message": "Refresh Token expired",
+                  "errors": []
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/home": {
+      "get": {
+        "tags": [
+          "User"
+        ],
+        "summary": "Home (protected)",
+        "description": "Simple protected route that returns a welcome message.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Welcome message",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                },
+                "example": {
+                  "statusCode": 200,
+                  "data": null,
+                  "message": "Welcome to the home route!",
+                  "success": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/users/profile": {
+      "get": {
+        "tags": [
+          "User"
+        ],
+        "summary": "Get the current user's profile",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Profile of the logged-in user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/User"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/users/edit-profile": {
+      "patch": {
+        "tags": [
+          "User"
+        ],
+        "summary": "Update the current user's profile",
+        "description": "Send any of `fullName`, `email`, `userName` (at least one). Omitted fields are left unchanged. Fields follow the same rules as registration; `email` and `userName` are trimmed and lowercased. Returns the updated user.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "minProperties": 1,
+                "properties": {
+                  "fullName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 50,
+                    "example": "Jane Doe"
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "example": "jane.new@example.com"
+                  },
+                  "userName": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 30,
+                    "pattern": "^[a-z0-9_]+$",
+                    "description": "Letters, numbers and underscores only. Lowercased by the server.",
+                    "example": "jane_a_doe"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Profile updated; returns the updated user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/User"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (empty body, empty field, invalid email/userName)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "success": false,
+                  "message": "Invalid email address",
+                  "errors": [
+                    {
+                      "field": "email",
+                      "message": "Invalid email address"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "description": "User not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "success": false,
+                  "message": "User not found",
+                  "errors": []
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Email or userName already used by another user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "success": false,
+                  "message": "Email already in use",
+                  "errors": []
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Access token from `/users/login` or `/users/refresh-token`"
+      },
+      "cookieAuth": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "accessToken",
+        "description": "httpOnly cookie set automatically by `/users/login`"
+      }
+    },
+    "schemas": {
+      "User": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string",
+            "example": "66f1c2a9e4b0a1b2c3d4e5f6"
+          },
+          "userName": {
+            "type": "string",
+            "example": "jane_doe"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "jane@example.com"
+          },
+          "fullName": {
+            "type": "string",
+            "example": "Jane Doe"
+          },
+          "avatar": {
+            "type": "string",
+            "format": "uri",
+            "description": "Cloudinary URL"
+          },
+          "coverImage": {
+            "type": "string",
+            "description": "Cloudinary URL, or empty string if none"
+          },
+          "watchHistory": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "description": "Video id"
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": [
+          "password"
+        ],
+        "description": "Provide `email` or `userName` (at least one).",
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "userName": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string",
+            "format": "password"
+          }
+        }
+      },
+      "ApiResponse": {
+        "type": "object",
+        "properties": {
+          "statusCode": {
+            "type": "integer",
+            "example": 200
+          },
+          "data": {
+            "description": "Payload; shape depends on the endpoint"
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "success": {
+            "type": "boolean",
+            "example": true
+          }
+        }
+      },
+      "ApiError": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": false
+          },
+          "message": {
+            "type": "string"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "field": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "responses": {
+      "Unauthorized": {
+        "description": "Missing, invalid or expired access token",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            },
+            "example": {
+              "success": false,
+              "message": "Unauthorized request",
+              "errors": []
+            }
+          }
+        }
+      },
+      "ServerError": {
+        "description": "Unexpected server error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            },
+            "example": {
+              "success": false,
+              "message": "Something went wrong",
+              "errors": []
+            }
+          }
+        }
+      }
+    }
+  }
+}

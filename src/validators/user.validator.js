@@ -24,4 +24,12 @@ const registerSchema = z.object({
         .max(64, "password must be at most 64 characters"),
 });
 
-export { registerSchema };
+// same rules as register, but every field is optional (at least one is required)
+const editProfileSchema = registerSchema
+    .pick({ fullName: true, email: true, userName: true })
+    .partial()
+    .refine((data) => Object.keys(data).length > 0, {
+        message: "Provide at least one of fullName, email or userName",
+    });
+
+export { registerSchema, editProfileSchema };

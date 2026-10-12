@@ -21,12 +21,6 @@ app.use(express.static("public"))
 // parse cookies from incoming requests
 app.use(cookieParser())
 
-// error handling middleware
-app.use((err, req, res, next) => {
-    res.status(err.statusCode || 500).json({
-        success: false, message: err.message, errors: err.errors || []
-    });
-});
 
 
 //routes import
@@ -35,5 +29,18 @@ import userRouter from "./routes/user.routes.js";
 //routes declaration
 app.use("/api/v1/users", userRouter);
 
+// swagger docs: UI at /api-docs, raw spec at /api-docs.json
+import swaggerUi from "swagger-ui-express";
+import { readFileSync } from "fs";
+const openapiSpec = JSON.parse(readFileSync(new URL("./docs/openapi.json", import.meta.url), "utf-8"));
+app.get("/api-docs.json", (req, res) => res.json(openapiSpec));
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(openapiSpec));
+
+// error handling middleware
+app.use((err, req, res, next) => {
+    res.status(err.statusCode || 500).json({
+        success: false, message: err.message, errors: err.errors || []
+    });
+});
 
 export default app;
