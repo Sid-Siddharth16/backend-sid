@@ -21,6 +21,13 @@ app.use(express.static("public"))
 // parse cookies from incoming requests
 app.use(cookieParser())
 
+// error handling middleware
+app.use((err, req, res, next) => {
+    res.status(err.statusCode || 500).json({
+        success: false, message: err.message, errors: err.errors || []
+    });
+});
+
 
 //routes import
 import userRouter from "./routes/user.routes.js";

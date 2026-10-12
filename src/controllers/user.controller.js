@@ -29,13 +29,8 @@ const options = {
 }
 
 const registerUser = asyncHandler(async (req, res) => {
-    //get user details from frontend
+    //get user details from frontend (already validated by registerSchema)
     const { fullName, email, userName, password } = req.body
-
-    // validations
-    if ([fullName, email, userName, password].some((field) => field?.trim() === "")) {
-        throw new ApiError(400, "fullName is required")
-    }
 
     // check if user already exist: username, email
     const existedUser = await User.findOne({
@@ -71,7 +66,7 @@ const registerUser = asyncHandler(async (req, res) => {
         coverImage: coverImage ? coverImage.url : "",
         email,
         password,
-        userName: userName.toLowerCase()
+        userName
 
     })
 
@@ -196,7 +191,37 @@ const dashboardUser = asyncHandler(async (req, res) => {
 })
 
 const editProfile = asyncHandler(async(req, res) => {
-    //edit profile steps:
+    //edit profile steps: extract the data from req body, check the user in db , then match the thing data changed then update in db and return the updated user details
+    const { fullName, email, userName } = req.body;
+
+    const user = await User.findById(req.user._id);
+
+    if(!user){
+        throw new ApiError(404, "User not found");
+    }
+
+// validations
+    if ([fullName, email, userName].some((field) => field?.trim() === "")) {
+        throw new ApiError(400, "fullName is required")
+    }
+    // check if the data has changed
+    if(fullName && fullName !== user.fullName){
+        user.fullName = fullName;
+    }
+
+    if(email && email !== user.email){
+        user.email = email;
+    }
+
+    if(userName && userName !== user.userName){
+        user.userName = userName;
+    }
+
+    await user.save();
+
+
+
+    return res.status(200).json(new ApiResponse(200, {}, "Profile updated successfully"))
     
 })
 

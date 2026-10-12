@@ -1,8 +1,10 @@
 import {Router} from 'express';
 import {upload} from "../middlewares/multer.middleware.js"
 import { verifyJWT } from '../middlewares/auth.middleware.js';
+import { validate } from '../middlewares/validate.middleware.js';
+import { registerSchema } from '../validators/user.validator.js';
 import { loggedOutUser, dashboardUser,loginUser, refreshAccessToken, registerUser, editProfile } from '../controllers/user.controller.js';
-
+import { home } from '../controllers/home.controller.js';
 const router = Router();
 
 
@@ -17,6 +19,7 @@ router.route("/register").post(
             maxCount: 1
         }
     ]),
+    validate(registerSchema),
     registerUser
 )
 
@@ -28,9 +31,10 @@ router.route("/login").post(
 
 router.route("/logout").post(verifyJWT, loggedOutUser)
 router.route("/refresh-token").post(refreshAccessToken)
-router.route("/dashboard").get(verifyJWT, dashboardUser)
+router.route("/home").get(verifyJWT, home)
+router.route("/profile").get(verifyJWT, dashboardUser)
 
-router.route("/edit-profile").put(verifyJWT, editProfile)
+router.route("/edit-profile").patch(verifyJWT, editProfile)
 
 
 
