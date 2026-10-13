@@ -37,7 +37,25 @@ app.get("/api-docs.json", (req, res) => res.json(openapiSpec));
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(openapiSpec));
 
 // error handling middleware
+import multer from "multer";
+import fs from "fs";
+
+// temp files multer saved for a request that failed before reaching Cloudinary
+const removeTempUploads = (req) => {
+    const files = [req.file, ...Object.values(req.files ?? {}).flat()].filter(Boolean);
+    files.forEach(({ path }) => {
+        if (path && fs.existsSync(path)) fs.unlinkSync(path);
+    });
+};
+
 app.use((err, req, res, next) => {
+    removeTempUploads(req);
+
+    if (err instanceof multer.MulterError) {
+        const message = err.code === "LIMIT_FILE_SIZE" ? "File is too large (max 100 MB)" : err.message;
+        return res.status(400).json({ success: false, message, errors: [] });
+    }
+
     res.status(err.statusCode || 500).json({
         success: false, message: err.message, errors: err.errors || []
     });
