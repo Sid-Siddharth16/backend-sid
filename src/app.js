@@ -27,7 +27,7 @@ app.use(cookieParser())
 import userRouter from "./routes/user.routes.js";
 
 //routes declaration
-app.use("/api/v1/users", userRouter);
+app.use("/api/v1", userRouter);
 
 // swagger docs: UI at /api-docs, raw spec at /api-docs.json
 import swaggerUi from "swagger-ui-express";

@@ -7,10 +7,11 @@ import { registerSchema, editProfileSchema } from '../validators/user.validator.
 import { loggedOutUser, dashboardUser,loginUser, refreshAccessToken, registerUser, editProfile, changeAvatar, changeCoverImage } from '../controllers/user.controller.js';
 import { home } from '../controllers/home.controller.js';
 import { uploadVideo, getMyVideos } from '../controllers/video.controller.js';
+
 const router = Router();
 
 
-router.route("/register").post(
+router.route("/users/register").post(
     upload.fields([
         {
             name: "avatar",
@@ -25,20 +26,20 @@ router.route("/register").post(
     registerUser
 )
 
-router.route("/login").post(
+router.route("/users/login").post(
     loginUser
 )
 
 //secured routes
 
-router.route("/logout").post(verifyJWT, loggedOutUser)
-router.route("/refresh-token").post(refreshAccessToken)
-router.route("/home").get(verifyJWT, home)
-router.route("/profile").get(verifyJWT, dashboardUser)
-router.route("/edit-profile").patch(verifyJWT, validate(editProfileSchema), editProfile)
-router.route("/change-avatar").patch(verifyJWT, upload.single("avatar"), changeAvatar)
-router.route("/change-cover-image").patch(verifyJWT, upload.single("coverImage"), changeCoverImage)
-router.route("/upload-video").post(
+router.route("/users/logout").post(verifyJWT, loggedOutUser)
+router.route("/users/refresh-token").post(refreshAccessToken)
+router.route("/users/home").get(verifyJWT, home)
+router.route("/users/profile").get(verifyJWT, dashboardUser)
+router.route("/users/edit-profile").patch(verifyJWT, validate(editProfileSchema), editProfile)
+router.route("/users/change-avatar").patch(verifyJWT, upload.single("avatar"), changeAvatar)
+router.route("/users/change-cover-image").patch(verifyJWT, upload.single("coverImage"), changeCoverImage)
+router.route("/users/upload-video").post(
     verifyJWT,
     upload.fields([
         { name: "videoFile", maxCount: 1 },
@@ -48,7 +49,7 @@ router.route("/upload-video").post(
     uploadVideo
 );
 
-router.route("/my-videos").get(verifyJWT, getMyVideos);
+router.route("/users/my-videos").get(verifyJWT, getMyVideos);
 
-
+router.route("/videos/")
 export default router;
