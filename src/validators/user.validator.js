@@ -1,5 +1,16 @@
 import { z } from "zod";
 
+// password policy shared by register and change-password (login is not checked, so older accounts can still sign in)
+const passwordSchema = (field) =>
+    z
+        .string({ error: `${field} is required` })
+        .min(8, `${field} must be at least 8 characters`)
+        .max(64, `${field} must be at most 64 characters`)
+        .regex(/[a-z]/, `${field} must contain a lowercase letter`)
+        .regex(/[A-Z]/, `${field} must contain an uppercase letter`)
+        .regex(/[0-9]/, `${field} must contain a number`)
+        .regex(/[^A-Za-z0-9]/, `${field} must contain a special character`);
+
 const registerSchema = z.object({
     fullName: z
         .string({ error: "fullName is required" })
@@ -18,10 +29,7 @@ const registerSchema = z.object({
         .min(3, "userName must be at least 3 characters")
         .max(30, "userName must be at most 30 characters")
         .regex(/^[a-z0-9_]+$/, "userName can only contain letters, numbers and underscores"),
-    password: z
-        .string({ error: "password is required" })
-        .min(8, "password must be at least 8 characters")
-        .max(64, "password must be at most 64 characters"),
+    password: passwordSchema("password"),
 });
 
 // same rules as register, but every field is optional (at least one is required)
@@ -32,4 +40,16 @@ const editProfileSchema = registerSchema
         message: "Provide at least one of fullName, email or userName",
     });
 
-export { registerSchema, editProfileSchema };
+const changePasswordSchema = z
+    .object({
+        currentPassword: z
+            .string({ error: "currentPassword is required" })
+            .min(1, "currentPassword is required"),
+        newPassword: passwordSchema("newPassword"),
+    })
+    .refine((data) => data.currentPassword !== data.newPassword, {
+        message: "New password cannot be the same as the current password",
+        path: ["newPassword"],
+    });
+
+export { registerSchema, editProfileSchema, changePasswordSchema };

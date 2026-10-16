@@ -277,8 +277,35 @@ const changeCoverImage = asyncHandler(async (req, res) => {
 
 })
 
+const changePassword = asyncHandler(async (req, res) => {
+    const { currentPassword, newPassword } = req.body;
+
+    const user = await User.findById(req.user._id);
+
+    if(!user){
+        throw new ApiError(404, "User not found");
+    }
+
+    const isCurrentPasswordValid = await user.isPasswordCorrect(currentPassword);
+    
+    if(!isCurrentPasswordValid){
+        throw new ApiError(400, "Current password is incorrect");
+    }
+
+    if(currentPassword === newPassword){
+        throw new ApiError(400, "New password cannot be the same as the current password");
+    }
+
+    user.password = newPassword;
+
+    await user.save();
+
+    return res.status(200).json(new ApiResponse(200, {}, "Password changed successfully"))
+
+})
 
 
 
 
-export { registerUser, loginUser, loggedOutUser, refreshAccessToken, dashboardUser, editProfile , changeAvatar, changeCoverImage };
+
+export { registerUser, loginUser, loggedOutUser, refreshAccessToken, dashboardUser, editProfile , changeAvatar, changeCoverImage, changePassword};

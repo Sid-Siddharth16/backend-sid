@@ -3,8 +3,8 @@ import {upload} from "../middlewares/multer.middleware.js"
 import { verifyJWT } from '../middlewares/auth.middleware.js';
 import { validate } from '../middlewares/validate.middleware.js';
 import { uploadVideoSchema } from '../validators/video.validator.js';
-import { registerSchema, editProfileSchema } from '../validators/user.validator.js';
-import { loggedOutUser, dashboardUser,loginUser, refreshAccessToken, registerUser, editProfile, changeAvatar, changeCoverImage } from '../controllers/user.controller.js';
+import { registerSchema, editProfileSchema, changePasswordSchema } from '../validators/user.validator.js';
+import { loggedOutUser, dashboardUser,loginUser, refreshAccessToken, registerUser, editProfile, changeAvatar, changeCoverImage, changePassword } from '../controllers/user.controller.js';
 import { home } from '../controllers/home.controller.js';
 import { uploadVideo, getMyVideos } from '../controllers/video.controller.js';
 
@@ -52,4 +52,6 @@ router.route("/users/upload-video").post(
 router.route("/users/my-videos").get(verifyJWT, getMyVideos);
 
 router.route("/videos/")
+
+router.route("/users/change-password").patch(verifyJWT, validate(changePasswordSchema), changePassword)
 export default router;
